@@ -20,7 +20,7 @@ export default async function Dashboard() {
 
   const { data: deals, error } = await (await supabase)
     .from("deals")
-    .select("value, stage, created_at, contacts (name, email)");
+    .select("id, value, stage, created_at, contacts (name, email)");
 
   if (error) {
     console.error("Error fetching deals:", error);
@@ -70,9 +70,9 @@ export default async function Dashboard() {
       ?.filter((d) => d.stage === "Closed Won")
       .slice(0, 5)
       .map((deal) => ({
-        id: deal.contacts.email,
-        name: deal.contacts.name,
-        email: deal.contacts.email,
+        id: deal.id,
+        name: deal.contacts[0].name,
+        email: deal.contacts[0].email,
         amount: `+$${deal.value.toLocaleString()}`,
       })) || [];
 

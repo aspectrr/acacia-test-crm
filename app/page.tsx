@@ -1,41 +1,81 @@
-import { Topbar } from "@/components/topbar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CalendarDateRangePicker } from "@/components/date-range-picker"
-import { Overview } from "@/components/overview"
-import { RecentSales } from "@/components/recent-sales"
-import { DataTable } from "@/components/data-table"
-import { DollarSign, TrendingUp, Users, Target, Plus } from "lucide-react"
+import { createClient } from "@/lib/supabase/server";
+import { Topbar } from "@/components/topbar";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CalendarDateRangePicker } from "@/components/date-range-picker";
+import { Overview } from "@/components/overview";
+import { RecentSales } from "@/components/recent-sales";
+import { DataTable } from "@/components/data-table";
+import { DollarSign, TrendingUp, Users, Target, Plus } from "lucide-react";
 
-const dashboardStats = [
-  {
-    title: "Monthly Revenue",
-    value: "$48,500",
-    description: "+12.5% from last month",
-    icon: DollarSign,
-  },
-  {
-    title: "New Deals Closed",
-    value: "12",
-    description: "+3 from last month",
-    icon: Target,
-  },
-  {
-    title: "Pipeline Value",
-    value: "$320,000",
-    description: "+8.2% total pipeline",
-    icon: TrendingUp,
-  },
-  {
-    title: "Conversion Rate",
-    value: "18.4%",
-    description: "+2.1% lead to close",
-    icon: Users,
-  },
-]
+export default async function Dashboard() {
+  const supabase = createClient();
 
-export default function Dashboard() {
+  const { data: deals, error } = await (await supabase)
+    .from("deals")
+    .select("value, stage, created_at, contacts (name, email)");
+
+  if (error) {
+    console.error("Error fetching deals:", error);
+  }
+
+  const monthlyRevenue =
+    deals
+      ?.filter((d) => d.stage === "Closed Won")
+      .reduce((acc, deal) => acc + deal.value, 0) || 0;
+  const newDealsClosed =
+    deals?.filter((d) => d.stage === "Closed Won").length || 0;
+  const pipelineValue =
+    deals
+      ?.filter((d) => d.stage !== "Closed Won" && d.stage !== "Closed Lost")
+      .reduce((acc, deal) => acc + deal.value, 0) || 0;
+  const conversionRate = (newDealsClosed / (deals?.length || 1)) * 100;
+
+  const dashboardStats = [
+    {
+      title: "Monthly Revenue",
+      value: `$${monthlyRevenue.toLocaleString()}`,
+      description: "+12.5% from last month",
+      icon: DollarSign,
+    },
+    {
+      title: "New Deals Closed",
+      value: newDealsClosed,
+      description: "+3 from last month",
+      icon: Target,
+    },
+    {
+      title: "Pipeline Value",
+      value: `$${pipelineValue.toLocaleString()}`,
+      description: "+8.2% total pipeline",
+      icon: TrendingUp,
+    },
+    {
+      title: "Conversion Rate",
+      value: `${conversionRate.toFixed(1)}%`,
+      description: "+2.1% lead to close",
+      icon: Users,
+    },
+  ];
+
+  const recentSales =
+    deals
+      ?.filter((d) => d.stage === "Closed Won")
+      .slice(0, 5)
+      .map((deal) => ({
+        id: deal.contacts.email,
+        name: deal.contacts.name,
+        email: deal.contacts.email,
+        amount: `+$${deal.value.toLocaleString()}`,
+      })) || [];
+
   return (
     <div className="flex flex-col min-h-screen">
       <Topbar />
@@ -63,12 +103,16 @@ export default function Dashboard() {
               {dashboardStats.map((stat, index) => (
                 <Card key={index}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      {stat.title}
+                    </CardTitle>
                     <stat.icon className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{stat.value}</div>
-                    <p className="text-xs text-muted-foreground">{stat.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {stat.description}
+                    </p>
                   </CardContent>
                 </Card>
               ))}
@@ -77,19 +121,23 @@ export default function Dashboard() {
               <Card className="col-span-4">
                 <CardHeader>
                   <CardTitle>Revenue Overview</CardTitle>
-                  <CardDescription>Monthly revenue and deals closed over time</CardDescription>
+                  <CardDescription>
+                    Monthly revenue and deals closed over time
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="pl-2">
-                  <Overview />
+                  <Overview data={deals || []} />
                 </CardContent>
               </Card>
               <Card className="col-span-3">
                 <CardHeader>
                   <CardTitle>Recent Sales</CardTitle>
-                  <CardDescription>Latest deals closed by your team</CardDescription>
+                  <CardDescription>
+                    Latest deals closed by your team
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <RecentSales />
+                  <RecentSales data={recentSales} />
                 </CardContent>
               </Card>
             </div>
@@ -98,7 +146,10 @@ export default function Dashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>All Deals</CardTitle>
-                <CardDescription>Comprehensive view of all deals with advanced filtering and sorting</CardDescription>
+                <CardDescription>
+                  Comprehensive view of all deals with advanced filtering and
+                  sorting
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <DataTable />
@@ -110,12 +161,16 @@ export default function Dashboard() {
               {dashboardStats.map((stat, index) => (
                 <Card key={index}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      {stat.title}
+                    </CardTitle>
                     <stat.icon className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{stat.value}</div>
-                    <p className="text-xs text-muted-foreground">{stat.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {stat.description}
+                    </p>
                   </CardContent>
                 </Card>
               ))}
@@ -123,7 +178,9 @@ export default function Dashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Analytics Dashboard</CardTitle>
-                <CardDescription>Detailed analytics and performance metrics coming soon</CardDescription>
+                <CardDescription>
+                  Detailed analytics and performance metrics coming soon
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-center h-[200px] text-muted-foreground">
@@ -136,7 +193,9 @@ export default function Dashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Reports</CardTitle>
-                <CardDescription>Generate and download comprehensive sales reports</CardDescription>
+                <CardDescription>
+                  Generate and download comprehensive sales reports
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-center h-[200px] text-muted-foreground">
@@ -148,5 +207,5 @@ export default function Dashboard() {
         </Tabs>
       </div>
     </div>
-  )
+  );
 }

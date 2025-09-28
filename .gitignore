@@ -44,8 +44,17 @@ jspm_packages/
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
-# TypeScript cache
+# local env files
+.env.local
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
 *.tsbuildinfo
+next-env.d.ts
+
 
 # Optional npm cache directory
 .npm
